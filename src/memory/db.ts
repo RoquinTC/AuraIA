@@ -89,5 +89,21 @@ export const memory = {
     const docRef = db.collection('users').doc(userId.toString()).collection('auth').doc('google');
     const doc = await docRef.get();
     return doc.exists ? doc.data() : null;
+  },
+
+  async isUpdateProcessed(updateId: number): Promise<boolean> {
+    const docRef = db.collection('processed_updates').doc(updateId.toString());
+    const doc = await docRef.get();
+    return doc.exists;
+  },
+
+  async markUpdateAsProcessed(updateId: number) {
+    const docRef = db.collection('processed_updates').doc(updateId.toString());
+    await docRef.set({
+      processed_at: Date.now(),
+      // TTL de 24 horas para que Firestore limpie automáticamente si se configura
+      // O simplemente para tener registro
+      expires_at: Date.now() + 24 * 60 * 60 * 1000 
+    });
   }
 };

@@ -17,6 +17,21 @@ bot.use(async (ctx, next) => {
   await next();
 });
 
+// Middleware para evitar procesar el mismo mensaje varias veces (duplicados por reintentos de Telegram)
+bot.use(async (ctx, next) => {
+  const updateId = ctx.update.update_id;
+  
+  const isProcessed = await memory.isUpdateProcessed(updateId);
+  if (isProcessed) {
+    console.log(`[Bot] Ignorando actualización duplicada: ${updateId}`);
+    return;
+  }
+
+  // Marcamos como procesada ANTES de empezar el trabajo pesado
+  await memory.markUpdateAsProcessed(updateId);
+  await next();
+});
+
 bot.command('start', async (ctx) => {
   await ctx.reply('¡Hola! Soy Aura, tu asistente personal de IA. ¿En qué te puedo ayudar hoy?');
 });
