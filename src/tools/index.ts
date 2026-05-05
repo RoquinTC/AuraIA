@@ -1,4 +1,4 @@
-import { getCurrentTimeDefinition, getCurrentTime } from './getCurrentTime.ts';
+import { getCurrentTimeDefinition, getCurrentTime } from './getCurrentTime.js';
 
 export const toolDefinitions = [
   getCurrentTimeDefinition,

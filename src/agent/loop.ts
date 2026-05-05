@@ -1,6 +1,6 @@
-import { createChatCompletion } from './llm';
-import { memory } from '../memory/db';
-import { toolDefinitions, executeTool } from '../tools/index';
+import { createChatCompletion } from './llm.js';
+import { memory } from '../memory/db.js';
+import { toolDefinitions, executeTool } from '../tools/index.js';
 
 const MAX_ITERATIONS = 5;
 
@@ -17,7 +17,7 @@ export async function runAgentLoop(userId: number, userMessage: string): Promise
     const history = await memory.getHistory(userId);
 
     // Formatear el historial para la API de OpenAI
-    const messages: any[] = history.map(msg => {
+    const messages: any[] = history.map((msg: any) => {
       if (msg.role === 'tool' || msg.role === 'assistant') {
         try {
           const parsed = JSON.parse(msg.content);

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 // Configuración de clientes
 const groqClient = new OpenAI({

@@ -1,8 +1,8 @@
 import { Bot, InputFile } from 'grammy';
-import { env } from '../config/env';
-import { runAgentLoop } from '../agent/loop';
-import { memory } from '../memory/db';
-import { voiceService } from '../services/voice';
+import { env } from '../config/env.js';
+import { runAgentLoop } from '../agent/loop.js';
+import { memory } from '../memory/db.js';
+import { voiceService } from '../services/voice.js';
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 

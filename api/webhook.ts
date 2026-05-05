@@ -1,6 +1,6 @@
 import { webhookCallback } from "grammy";
-import { bot } from "../src/bot/telegram";
-import { memory } from "../src/memory/db";
+import { bot } from "../src/bot/telegram.js";
+import { memory } from "../src/memory/db.js";
 
 // Inicializamos la base de datos (Firebase) antes de procesar solicitudes
 let dbInitialized = false;
