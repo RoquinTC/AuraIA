@@ -23,7 +23,7 @@ export const voiceService = {
    */
   async transcribeAudio(fileUrl: string): Promise<string> {
     const tempFilePath = path.join(TEMP_DIR, `in_${Date.now()}.ogg`);
-    
+
     try {
       // 1. Descargar audio
       const response = await axios({
