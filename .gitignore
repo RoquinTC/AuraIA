@@ -3,4 +3,5 @@ node_modules/
 firebase-key.json
 memory.db
 temp/
+credentials.json
 out_*.mp3

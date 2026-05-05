@@ -75,5 +75,19 @@ export const memory = {
     });
     
     await batch.commit();
+  },
+
+  async saveGoogleToken(userId: number, token: any) {
+    const docRef = db.collection('users').doc(userId.toString()).collection('auth').doc('google');
+    await docRef.set({
+      ...token,
+      updated_at: Date.now()
+    });
+  },
+
+  async getGoogleToken(userId: number): Promise<any | null> {
+    const docRef = db.collection('users').doc(userId.toString()).collection('auth').doc('google');
+    const doc = await docRef.get();
+    return doc.exists ? doc.data() : null;
   }
 };

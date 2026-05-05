@@ -30,6 +30,8 @@ export const env = {
   DB_PATH: getEnv('DB_PATH', false, './memory.db'),
   FIREBASE_SERVICE_ACCOUNT_KEY_PATH: getEnv('FIREBASE_SERVICE_ACCOUNT_KEY_PATH', false, './firebase-key.json'),
   FIREBASE_SERVICE_ACCOUNT_JSON: getEnv('FIREBASE_SERVICE_ACCOUNT_JSON', false, ''), // Para Vercel
+  // Google Workspace
+  GOOGLE_CREDENTIALS_JSON: getEnv('GOOGLE_CREDENTIALS_JSON', false, ''),
 };
 
 if (env.TELEGRAM_ALLOWED_USER_IDS.length === 0) {

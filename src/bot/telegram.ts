@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { runAgentLoop } from '../agent/loop.js';
 import { memory } from '../memory/db.js';
 import { voiceService } from '../services/voice.js';
+import { googleService } from '../services/google.js';
 
 const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
 
@@ -24,6 +25,14 @@ bot.command(['clear', 'borrar'], async (ctx) => {
   const userId = ctx.from!.id;
   await memory.clearHistory(userId);
   await ctx.reply('🧹 He borrado nuestra memoria reciente. ¡Empecemos de cero!');
+});
+
+bot.command('google_auth', async (ctx) => {
+  const url = await googleService.getAuthUrl();
+  await ctx.reply('🔐 Para que pueda manejar tu Gmail y Calendario, necesito tu permiso.\n\n' +
+    '1. Entra a este enlace:\n' + url + '\n\n' +
+    '2. Inicia sesión y copia el código que te den.\n' +
+    '3. Pégamelo aquí mismo.');
 });
 
 async function processAndSendResponse(ctx: any, responseText: string) {
@@ -52,6 +61,20 @@ async function processAndSendResponse(ctx: any, responseText: string) {
 bot.on('message:text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text;
+
+  // Si el texto parece un código de autorización de Google
+  if (text.startsWith('4/') && text.length > 20) {
+    try {
+      await ctx.reply('⏳ Validando código de Google...');
+      await googleService.setTokenFromCode(userId, text);
+      await ctx.reply('✅ ¡Listo! Ya tengo permiso para ayudarte con tu Gmail y Calendario.');
+      return;
+    } catch (error: any) {
+      console.error('Error validando código de Google:', error);
+      await ctx.reply('❌ No pude validar ese código. Asegúrate de copiarlo completo e intentarlo de nuevo con /google_auth');
+      return;
+    }
+  }
 
   await ctx.replyWithChatAction('typing');
 

@@ -75,7 +75,7 @@ export async function runAgentLoop(userId: number, userMessage: string): Promise
         const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
 
         try {
-          const result = await executeTool(functionName, functionArgs);
+          const result = await executeTool(functionName, functionArgs, userId);
 
           // Guardar el resultado en la memoria como rol "tool"
           // OJO: Como usamos una BD simple de texto para el rol, adaptamos cómo lo almacenamos
