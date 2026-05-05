@@ -1,134 +1,144 @@
-import fs from 'fs';
-import path from 'path';
+import { memory } from '../memory/db.js';
 import axios from 'axios';
 import { env } from '../config/env.js';
-import { memory } from '../memory/db.js';
+import fs from 'fs';
+import path from 'path';
+
+const GITHUB_API_URL = 'https://api.github.com';
 
 export const proposeNewSkillDefinition = {
   type: 'function',
   function: {
     name: 'propose_new_skill',
-    description: 'Propone una nueva habilidad técnica para Aura. Investiga, escribe el código y lo presenta al usuario para aprobación.',
+    description: 'Propone una nueva habilidad (código TypeScript). Se guarda en Firestore para revisión.',
     parameters: {
       type: 'object',
       properties: {
-        skill_name: { type: 'string', description: 'Nombre de la habilidad (ej: generate_image)' },
-        description: { type: 'string', description: 'Qué hace la habilidad' },
-        code: { type: 'string', description: 'El código TypeScript completo de la nueva herramienta' },
+        skill_name: { type: 'string', description: 'Nombre de la habilidad en snake_case (ej. get_weather)' },
+        description: { type: 'string', description: 'Qué hace la herramienta.' },
+        code: { type: 'string', description: 'Código TypeScript completo del archivo de la herramienta.' }
       },
-      required: ['skill_name', 'description', 'code'],
-    },
-  },
+      required: ['skill_name', 'description', 'code']
+    }
+  }
 };
+
+export async function proposeNewSkill(skill_name: string, description: string, code: string) {
+  // Guardar en Firestore como una propuesta pendiente
+  await memory.addMessage(0, 'skill_proposal', JSON.stringify({
+    skill_name,
+    description,
+    code,
+    status: 'pending',
+    createdAt: Date.now()
+  }));
+
+  return `✅ Propuesta para '${skill_name}' guardada. El usuario debe aprobarla con 'apply_new_skill'.`;
+}
 
 export const applyNewSkillDefinition = {
   type: 'function',
   function: {
     name: 'apply_new_skill',
-    description: 'Instala definitivamente una habilidad que ya ha sido aprobada por el usuario.',
+    description: 'Aplica y despliega una propuesta de habilidad aprobada.',
     parameters: {
       type: 'object',
       properties: {
-        skill_name: { type: 'string', description: 'Nombre de la habilidad a instalar' },
+        skill_name: { type: 'string', description: 'Nombre de la habilidad a aplicar.' }
       },
-      required: ['skill_name'],
-    },
-  },
+      required: ['skill_name']
+    }
+  }
 };
+
+export async function applyNewSkill(skill_name: string) {
+  // 1. Buscar la propuesta en Firestore
+  // Nota: En una implementación real buscaríamos en una colección de propuestas.
+  // Por ahora, simulamos que Aura sabe qué código aplicar si acaba de proponerlo.
+  // (Idealmente el LLM ya tiene el código en su contexto).
+  
+  // Para este prototipo, vamos a usar GitHub API para crear el archivo.
+  // Pero antes, si estamos en LOCAL, lo escribimos en el disco.
+  
+  const isVercel = !!process.env.VERCEL;
+  const toolFileName = `${skill_name}.ts`;
+  const toolFilePath = path.join(process.cwd(), 'src', 'tools', toolFileName);
+  
+  // El código debe ser proporcionado por el agente o recuperado.
+  // Como simplificación, asumimos que el agente ya sabe el código (está en su contexto).
+  // Si no, lo buscaríamos en Firestore.
+  
+  // Vamos a recuperar el código de la última propuesta en Firestore
+  const proposals = await memory.getHistory(0, 10);
+  const proposalMsg = proposals.find((m: any) => {
+    if (m.role !== 'skill_proposal') return false;
+    const data = JSON.parse(m.content);
+    return data.skill_name === skill_name;
+  });
+
+  if (!proposalMsg) {
+    throw new Error(`No se encontró la propuesta para '${skill_name}'.`);
+  }
+
+  const { code } = JSON.parse(proposalMsg.content);
+
+  // --- ESCritura LOCAL ---
+  if (!isVercel) {
+    console.log(`[Evolución] Escribiendo archivo local: ${toolFilePath}`);
+    fs.writeFileSync(toolFilePath, code);
+    // Nota: El registro en index.ts local requiere una lógica de edición de archivos más compleja.
+    // Por ahora, el usuario verá el archivo y podrá registrarlo, o Aura intentará subirlo a Git.
+  }
+
+  // --- DESPLIEGUE CLOUD (GitHub API) ---
+  if (env.GITHUB_TOKEN && env.GITHUB_USER && env.GITHUB_REPO) {
+    try {
+      const repoName = env.GITHUB_REPO.split('/').pop()?.replace('.git', '');
+      const url = `${GITHUB_API_URL}/repos/${env.GITHUB_USER}/${repoName}/contents/src/tools/${toolFileName}`;
+      
+      // Ver si el archivo ya existe para obtener el SHA
+      let sha;
+      try {
+        const res = await axios.get(url, {
+          headers: { Authorization: `token ${env.GITHUB_TOKEN}` }
+        });
+        sha = res.data.sha;
+      } catch (e) {}
+
+      await axios.put(url, {
+        message: `Evolución: Añadir herramienta ${skill_name}`,
+        content: Buffer.from(code).toString('base64'),
+        sha
+      }, {
+        headers: { Authorization: `token ${env.GITHUB_TOKEN}` }
+      });
+
+      return `🚀 Habilidad '${skill_name}' aplicada con éxito. ${!isVercel ? 'Archivo escrito localmente y ' : ''}Sincronizado con GitHub. Vercel se está actualizando.`;
+    } catch (error: any) {
+      return `❌ Error al sincronizar con GitHub: ${error.message}`;
+    }
+  }
+
+  return `✅ Habilidad '${skill_name}' escrita en disco local. (No se configuró GitHub para despliegue cloud).`;
+}
 
 export const selfDeployDefinition = {
   type: 'function',
   function: {
     name: 'self_deploy',
-    description: 'Sube los cambios a GitHub para que Vercel se actualice.',
+    description: 'Realiza un commit de todos los cambios actuales al repositorio de GitHub.',
     parameters: {
       type: 'object',
       properties: {
-        commit_message: { type: 'string', description: 'Mensaje del commit' },
+        commit_message: { type: 'string', description: 'Descripción de los cambios.' }
       },
-      required: ['commit_message'],
-    },
-  },
+      required: ['commit_message']
+    }
+  }
 };
 
-export async function proposeNewSkill(name: string, desc: string, code: string) {
-  // GUARDAR EN FIRESTORE (No en disco)
-  await memory.addMessage(999, 'proposal', JSON.stringify({
-    name,
-    description: desc,
-    code,
-    timestamp: Date.now()
-  }));
-
-  return `✅ He generado la propuesta para "${name}". 
-Código guardado en la base de datos en la nube. 
-Por favor, revísalo y si estás de acuerdo, dime "Aplica la habilidad ${name}".`;
-}
-
-export async function applyNewSkill(name: string) {
-  if (!env.GITHUB_TOKEN || !env.GITHUB_USER || !env.GITHUB_REPO) {
-    throw new Error('Faltan configurar variables de GITHUB en el .env');
-  }
-
-  // 1. Obtener la propuesta de Firestore (buscamos la más reciente)
-  const history = await memory.getHistory(999, 10);
-  const proposalMsg = history.reverse().find((m: any) => {
-    try {
-      const p = JSON.parse(m.content);
-      return p.name === name;
-    } catch (e) { return false; }
-  });
-
-  if (!proposalMsg) throw new Error(`No encontré la propuesta para ${name}`);
-  const proposal = JSON.parse(proposalMsg.content);
-
-  // 2. Subir el nuevo archivo de herramienta a GitHub vía API
-  const toolContentBase64 = Buffer.from(proposal.code).toString('base64');
-
-  await axios.put(
-    `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/contents/src/tools/${name}.ts`,
-    {
-      message: `Feat: add new skill ${name} (Aura Evolution)`,
-      content: toolContentBase64,
-    },
-    { headers: { Authorization: `token ${env.GITHUB_TOKEN}` } }
-  );
-
-  // 3. Actualizar index.ts en GitHub vía API
-  const indexUrl = `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/contents/src/tools/index.ts`;
-  const indexRes = await axios.get(indexUrl, {
-    headers: { Authorization: `token ${env.GITHUB_TOKEN}` }
-  });
-
-  const currentContent = Buffer.from(indexRes.data.content, 'base64').toString('utf8');
-  const sha = indexRes.data.sha;
-
-  const importLine = `import { ${name}Definition, ${name} } from './${name}.js';\n`;
-  let newIndexContent = currentContent;
-
-  if (!newIndexContent.includes(importLine)) {
-    newIndexContent = importLine + newIndexContent;
-  }
-  if (!newIndexContent.includes(`${name}Definition`)) {
-    newIndexContent = newIndexContent.replace('export const toolDefinitions = [', `export const toolDefinitions = [\n  ${name}Definition,`);
-  }
-  if (!newIndexContent.includes(`case '${name}':`)) {
-    newIndexContent = newIndexContent.replace("default:", `case '${name}':\n      return await ${name}(args.query || args);\n    default:`);
-  }
-
-  await axios.put(
-    indexUrl,
-    {
-      message: `Refactor: register new skill ${name} in index.ts`,
-      content: Buffer.from(newIndexContent).toString('base64'),
-      sha: sha
-    },
-    { headers: { Authorization: `token ${env.GITHUB_TOKEN}` } }
-  );
-
-  return `🚀 ¡Hecho! He subido el código de "${name}" directamente a GitHub y he actualizado mi registro. Vercel se está reiniciando con mi nuevo poder.`;
-}
-
-export async function selfDeploy(message: string) {
-  return "✅ Mi sistema ahora es evolutivo en tiempo real. Al aplicar una habilidad con 'apply_new_skill', ya me actualizo automáticamente en GitHub. ¡No necesito hacer git push manual!";
+export async function selfDeploy(commit_message: string) {
+  // Esta función es más compleja ya que requiere listar archivos modificados.
+  // Por ahora es un placeholder para futuras expansiones.
+  return "Función de auto-despliegue completo en desarrollo.";
 }

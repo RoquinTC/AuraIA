@@ -4,7 +4,7 @@ import { toolDefinitions, executeTool } from '../tools/index.js';
 
 const MAX_ITERATIONS = 5;
 
-export async function runAgentLoop(userId: number, userMessage: string): Promise<string> {
+export async function runAgentLoop(userId: number, userMessage: string, ctx?: any): Promise<string> {
   // 1. Agregar el mensaje del usuario a la memoria
   await memory.addMessage(userId, 'user', userMessage);
 
@@ -16,7 +16,7 @@ export async function runAgentLoop(userId: number, userMessage: string): Promise
     // 2. Obtener el historial de este usuario
     const history = await memory.getHistory(userId);
 
-    // Formatear el historial para la API de OpenAI
+    // Formatear el historial para la API
     const messages: any[] = history.map((msg: any) => {
       if (msg.role === 'tool' || msg.role === 'assistant') {
         try {
@@ -39,17 +39,16 @@ export async function runAgentLoop(userId: number, userMessage: string): Promise
         role: msg.role,
         content: msg.content,
       };
-    }).filter(Boolean); // Filtrar nulos si hubiese errores de parseo
+    }).filter(Boolean);
 
-    // Limpiar historial para asegurar que no haya llamadas a herramientas huérfanas 
-    // (ocurre si el límite de la BD corta la conversación a la mitad)
+    // Limpiar historial
     const sanitizedMessages: any[] = [];
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       if (msg.role === 'tool') {
         const prevMsg = sanitizedMessages[sanitizedMessages.length - 1];
         if (!prevMsg || prevMsg.role !== 'assistant' || !prevMsg.tool_calls) {
-          continue; // Ignorar esta respuesta de herramienta porque no tiene su pregunta previa
+          continue; 
         }
       }
       sanitizedMessages.push(msg);
@@ -62,24 +61,17 @@ export async function runAgentLoop(userId: number, userMessage: string): Promise
 
     // 4. Procesar la respuesta
     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-      // El agente decidió usar una o más herramientas
-
-      // Guardar la intención del asistente de usar la herramienta
       await memory.addMessage(userId, 'assistant', JSON.stringify({
         tool_calls: responseMessage.tool_calls
       }));
 
-      // Ejecutar cada herramienta secuencialmente
       for (const toolCall of responseMessage.tool_calls) {
         const functionName = toolCall.function.name;
         const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
 
         try {
-          const result = await executeTool(functionName, functionArgs, userId);
+          const result = await executeTool(functionName, functionArgs, userId, ctx);
 
-          // Guardar el resultado en la memoria como rol "tool"
-          // OJO: Como usamos una BD simple de texto para el rol, adaptamos cómo lo almacenamos
-          // En una implementación más compleja se guardaría el tool_call_id
           await memory.addMessage(userId, 'tool', JSON.stringify({
             tool_call_id: toolCall.id,
             name: functionName,
@@ -93,12 +85,10 @@ export async function runAgentLoop(userId: number, userMessage: string): Promise
           }));
         }
       }
-
-      // El bucle continuará para que el LLM analice el resultado de la herramienta
       continue;
     }
 
-    // 5. Si no hay llamadas a herramientas, hemos terminado
+    // 5. Finalizar
     const finalContent = responseMessage.content || "Lo siento, no pude procesar una respuesta.";
     await memory.addMessage(userId, 'assistant', finalContent);
     return finalContent;

@@ -36,3 +36,10 @@ export const env = {
   FIREBASE_SERVICE_ACCOUNT_JSON: getEnv('FIREBASE_SERVICE_ACCOUNT_JSON', false),
   GOOGLE_CREDENTIALS_JSON: getEnv('GOOGLE_CREDENTIALS_JSON', false),
 };
+
+// Log de diagnóstico al arrancar
+console.log('--- Diagnóstico de Variables ---');
+console.log('GOOGLE_AI_KEY detectada:', env.GOOGLE_AI_KEY ? '✅ SÍ' : '❌ NO');
+console.log('TAVILY_API_KEY detectada:', env.TAVILY_API_KEY ? '✅ SÍ' : '❌ NO');
+console.log('GITHUB_TOKEN detectada:', env.GITHUB_TOKEN ? '✅ SÍ' : '❌ NO');
+console.log('--------------------------------');

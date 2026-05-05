@@ -133,7 +133,7 @@ bot.on('message:text', async (ctx) => {
 
   try {
     await ctx.replyWithChatAction('typing');
-    const responseText = await runAgentLoop(userId, text);
+    const responseText = await runAgentLoop(userId, text, ctx);
     
     // Borrar mensaje de espera antes de enviar la respuesta real
     try { await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id); } catch(e) {}
@@ -161,7 +161,7 @@ bot.on('message:voice', async (ctx) => {
     await ctx.api.editMessageText(ctx.chat.id, waitMsg.message_id, `🎤 He entendido: "${transcription}"\n\n⏳ Pensando respuesta...`);
     
     await ctx.replyWithChatAction('typing');
-    const responseText = await runAgentLoop(userId, transcription);
+    const responseText = await runAgentLoop(userId, transcription, ctx);
     
     try { await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id); } catch(e) {}
     
@@ -171,6 +171,34 @@ bot.on('message:voice', async (ctx) => {
     await ctx.api.editMessageText(ctx.chat.id, waitMsg.message_id, '❌ Tuve un problema procesando tu nota de voz.');
   }
 });
+
+bot.on('message:document', async (ctx) => {
+  const doc = ctx.message.document;
+  if (doc.mime_type !== 'application/pdf') {
+    return await ctx.reply('⚠️ Por ahora solo puedo procesar archivos PDF.');
+  }
+
+  const waitMsg = await ctx.reply('📄 PDF recibido. Estoy analizando el contenido...', {
+    reply_to_message_id: ctx.message.message_id
+  });
+
+  try {
+    const file = await ctx.api.getFile(doc.file_id);
+    const fileUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+    
+    // Mensaje persuasivo para que el agente no ignore el archivo
+    const agentPrompt = `DOCUMENTO RECIBIDO: ${doc.file_name}\nEl usuario te ha enviado este archivo PDF. Para leer su contenido, DEBES usar inmediatamente la herramienta 'read_pdf' con esta URL: ${fileUrl}\n\nNo respondas que no puedes leerlo, simplemente usa la herramienta.`;
+    
+    const responseText = await runAgentLoop(ctx.from.id, agentPrompt, ctx);
+    
+    try { await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id); } catch(e) {}
+    await processAndSendResponse(ctx, responseText);
+  } catch (error: any) {
+    console.error('Error procesando documento:', error);
+    await ctx.api.editMessageText(ctx.chat.id, waitMsg.message_id, '❌ Hubo un error al intentar leer este PDF.');
+  }
+});
+
 
 export { bot };
 

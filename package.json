@@ -9,6 +9,7 @@
     "build": "echo 'Skipping tsc build, Vercel will handle it on-the-fly'"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.6.8",
     "dotenv": "^16.4.5",
     "firebase-admin": "^13.8.0",
@@ -18,10 +19,12 @@
     "googleapis": "^171.4.0",
     "grammy": "^1.21.1",
     "node-edge-tts": "^1.2.10",
-    "openai": "^4.28.4"
+    "openai": "^4.28.4",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
+    "@types/pdf-parse": "^1.1.5",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"
   }
