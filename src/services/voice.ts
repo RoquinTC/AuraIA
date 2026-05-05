@@ -61,7 +61,7 @@ export const voiceService = {
     try {
       // Usamos una voz neuronal de México para que suene más natural y animada
       const tts = new EdgeTTS({ voice: 'es-MX-DaliaNeural' });
-      await tts.ttsPromise(text, tempFilePath);
+      await tts.ttsPromise(text, tempFilePath, { rate: '+25%' });
 
       return tempFilePath;
     } catch (error: any) {
