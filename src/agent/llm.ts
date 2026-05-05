@@ -108,3 +108,6 @@ export async function createChatCompletion(messages: any[], tools?: any[]) {
 
   throw new Error('Todos los proveedores de LLM fallaron.');
 }
+
+// Versión del Motor: 2.1 (Incremental UX)
+
