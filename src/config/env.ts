@@ -19,21 +19,20 @@ export const env = {
     .map(Number),
 
   GROQ_API_KEY: getEnv('GROQ_API_KEY'),
-  OPENROUTER_API_KEY: getEnv('OPENROUTER_API_KEY', false), // No es estrictamente requerida para iniciar, pero sí para el fallback
+  OPENROUTER_API_KEY: getEnv('OPENROUTER_API_KEY', false),
+  GOOGLE_AI_KEY: getEnv('GOOGLE_AI_KEY', false),
+  TAVILY_API_KEY: getEnv('TAVILY_API_KEY', false),
+  
+  GITHUB_TOKEN: getEnv('GITHUB_TOKEN', false),
+  GITHUB_USER: getEnv('GITHUB_USER', false),
+  GITHUB_REPO: getEnv('GITHUB_REPO', false),
   
   LOCAL_AI_BASE_URL: getEnv('LOCAL_AI_BASE_URL', false),
   LOCAL_AI_MODEL: getEnv('LOCAL_AI_MODEL', false, 'llama3'),
 
   ELEVENLABS_API_KEY: getEnv('ELEVENLABS_API_KEY', false),
-  ELEVENLABS_VOICE_ID: getEnv('ELEVENLABS_VOICE_ID', false, '21m00Tcm4TlvDq8ikWAM'), // Rachel voice as default
+  ELEVENLABS_VOICE_ID: getEnv('ELEVENLABS_VOICE_ID', false, '21m00Tcm4TlvDq8ikWAM'),
 
-  DB_PATH: getEnv('DB_PATH', false, './memory.db'),
-  FIREBASE_SERVICE_ACCOUNT_KEY_PATH: getEnv('FIREBASE_SERVICE_ACCOUNT_KEY_PATH', false, './firebase-key.json'),
-  FIREBASE_SERVICE_ACCOUNT_JSON: getEnv('FIREBASE_SERVICE_ACCOUNT_JSON', false, ''), // Para Vercel
-  // Google Workspace
-  GOOGLE_CREDENTIALS_JSON: getEnv('GOOGLE_CREDENTIALS_JSON', false, ''),
+  FIREBASE_SERVICE_ACCOUNT_KEY_PATH: getEnv('FIREBASE_SERVICE_ACCOUNT_KEY_PATH', false),
+  GOOGLE_CREDENTIALS_JSON: getEnv('GOOGLE_CREDENTIALS_JSON', false),
 };
-
-if (env.TELEGRAM_ALLOWED_USER_IDS.length === 0) {
-  throw new Error("TELEGRAM_ALLOWED_USER_IDS debe contener al menos un ID de usuario válido.");
-}
