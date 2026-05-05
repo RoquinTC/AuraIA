@@ -1,109 +1,110 @@
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, cert, getApp, getApps } from 'firebase-admin/app';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { env } from '../config/env.js';
 import fs from 'fs';
+import path from 'path';
 
-export interface MessageRow {
-  user_id?: number;
-  role: string;
-  content: string;
-  timestamp: number;
-}
+export class Memory {
+  private db!: Firestore;
 
-let db: FirebaseFirestore.Firestore;
-
-export const memory = {
   async init() {
-    let serviceAccount;
-    
-    if (env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      // Prioridad 1: Vercel (Variable de entorno)
-      serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    } else {
-      // Prioridad 2: Local (Archivo)
-      const serviceAccountPath = env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH;
-      if (!fs.existsSync(serviceAccountPath)) {
-        throw new Error(`[Firebase] No se encontró el archivo de credenciales en: ${serviceAccountPath}. Por favor, descárgalo de la consola de Firebase y colócalo ahí.`);
-      }
-      serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    if (getApps().length > 0) {
+      this.db = getFirestore(getApp());
+      return;
     }
 
-    initializeApp({
-      credential: cert(serviceAccount)
+    let serviceAccount: any;
+
+    // 1. Prioridad: Variable de entorno con el JSON directamente (Ideal para Vercel)
+    if (env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      try {
+        serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+        console.log('✅ Inicializando Firebase usando FIREBASE_SERVICE_ACCOUNT_JSON');
+      } catch (e) {
+        console.error('❌ Error al parsear FIREBASE_SERVICE_ACCOUNT_JSON:', e);
+      }
+    }
+
+    // 2. Fallback: Archivo físico (Para local)
+    if (!serviceAccount) {
+      const keyPath = path.join(process.cwd(), 'firebase-key.json');
+      if (fs.existsSync(keyPath)) {
+        serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+        console.log('✅ Inicializando Firebase usando archivo local firebase-key.json');
+      }
+    }
+
+    if (!serviceAccount) {
+      throw new Error('[Firebase] No se encontró configuración válida (JSON o archivo).');
+    }
+
+    const app = initializeApp({
+      credential: cert(serviceAccount),
     });
 
-    db = getFirestore();
+    this.db = getFirestore(app);
     console.log('✅ Conectado a Firebase Firestore.');
-  },
+  }
 
-  async addMessage(userId: number, role: string, content: string) {
-    const docRef = db.collection('users').doc(userId.toString()).collection('messages').doc();
-    await docRef.set({
-      role,
-      content,
-      timestamp: Date.now()
-    });
-  },
+  // --- MÉTODOS DE HISTORIAL ---
 
-  async getHistory(userId: number, limit: number = 100): Promise<MessageRow[]> {
-    const snapshot = await db.collection('users')
-      .doc(userId.toString())
-      .collection('messages')
+  async getHistory(userId: number, limit: number = 20) {
+    const snapshot = await this.db
+      .collection('history')
+      .where('userId', '==', userId)
       .orderBy('timestamp', 'desc')
       .limit(limit)
       .get();
-      
-    const messages: MessageRow[] = [];
-    snapshot.forEach(doc => {
-      messages.push(doc.data() as MessageRow);
-    });
-    
-    // Invertir para que queden en orden cronológico ascendente (el más viejo primero)
-    return messages.reverse();
-  },
 
-  async clearHistory(userId: number) {
-    const messagesRef = db.collection('users').doc(userId.toString()).collection('messages');
-    const snapshot = await messagesRef.get();
-    
-    if (snapshot.size === 0) return;
-    
-    // Batch delete
-    const batch = db.batch();
-    snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
-    
-    await batch.commit();
-  },
+    return snapshot.docs.map(doc => doc.data()).reverse();
+  }
 
-  async saveGoogleToken(userId: number, token: any) {
-    const docRef = db.collection('users').doc(userId.toString()).collection('auth').doc('google');
-    await docRef.set({
-      ...token,
-      updated_at: Date.now()
-    });
-  },
-
-  async getGoogleToken(userId: number): Promise<any | null> {
-    const docRef = db.collection('users').doc(userId.toString()).collection('auth').doc('google');
-    const doc = await docRef.get();
-    return doc.exists ? doc.data() : null;
-  },
-
-  async isUpdateProcessed(updateId: number): Promise<boolean> {
-    const docRef = db.collection('processed_updates').doc(updateId.toString());
-    const doc = await docRef.get();
-    return doc.exists;
-  },
-
-  async markUpdateAsProcessed(updateId: number) {
-    const docRef = db.collection('processed_updates').doc(updateId.toString());
-    await docRef.set({
-      processed_at: Date.now(),
-      // TTL de 24 horas para que Firestore limpie automáticamente si se configura
-      // O simplemente para tener registro
-      expires_at: Date.now() + 24 * 60 * 60 * 1000 
+  async addMessage(userId: number, role: string, content: string) {
+    await this.db.collection('history').add({
+      userId,
+      role,
+      content,
+      timestamp: Date.now(),
     });
   }
-};
+
+  async clearHistory(userId: number) {
+    const snapshot = await this.db
+      .collection('history')
+      .where('userId', '==', userId)
+      .get();
+
+    const batch = this.db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+
+  // --- MÉTODOS DE GOOGLE TOKENS ---
+
+  async saveGoogleTokens(userId: number, tokens: any) {
+    await this.db.collection('google_tokens').doc(userId.toString()).set({
+      ...tokens,
+      updatedAt: Date.now(),
+    });
+  }
+
+  async getGoogleTokens(userId: number) {
+    const doc = await this.db.collection('google_tokens').doc(userId.toString()).get();
+    return doc.exists ? doc.data() : null;
+  }
+
+  // --- DEDUPLICACIÓN DE UPDATES ---
+
+  async isUpdateProcessed(updateId: number): Promise<boolean> {
+    const doc = await this.db.collection('processed_updates').doc(updateId.toString()).get();
+    return doc.exists;
+  }
+
+  async markUpdateAsProcessed(updateId: number): Promise<void> {
+    await this.db.collection('processed_updates').doc(updateId.toString()).set({
+      processedAt: Date.now()
+    });
+  }
+}
+
+export const memory = new Memory();
