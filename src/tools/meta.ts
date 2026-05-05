@@ -3,40 +3,49 @@ import path from 'path';
 import { execSync } from 'child_process';
 
 export const proposeNewSkillDefinition = {
-  name: 'propose_new_skill',
-  description: 'Propone una nueva habilidad técnica para Aura. Investiga, escribe el código y lo presenta al usuario para aprobación.',
-  parameters: {
-    type: 'object',
-    properties: {
-      skill_name: { type: 'string', description: 'Nombre de la habilidad (ej: generate_image)' },
-      description: { type: 'string', description: 'Qué hace la habilidad' },
-      code: { type: 'string', description: 'El código TypeScript completo de la nueva herramienta' },
+  type: 'function',
+  function: {
+    name: 'propose_new_skill',
+    description: 'Propone una nueva habilidad técnica para Aura. Investiga, escribe el código y lo presenta al usuario para aprobación.',
+    parameters: {
+      type: 'object',
+      properties: {
+        skill_name: { type: 'string', description: 'Nombre de la habilidad (ej: generate_image)' },
+        description: { type: 'string', description: 'Qué hace la habilidad' },
+        code: { type: 'string', description: 'El código TypeScript completo de la nueva herramienta' },
+      },
+      required: ['skill_name', 'description', 'code'],
     },
-    required: ['skill_name', 'description', 'code'],
   },
 };
 
 export const applyNewSkillDefinition = {
-  name: 'apply_new_skill',
-  description: 'Instala definitivamente una habilidad que ya ha sido aprobada por el usuario.',
-  parameters: {
-    type: 'object',
-    properties: {
-      skill_name: { type: 'string', description: 'Nombre de la habilidad a instalar' },
+  type: 'function',
+  function: {
+    name: 'apply_new_skill',
+    description: 'Instala definitivamente una habilidad que ya ha sido aprobada por el usuario.',
+    parameters: {
+      type: 'object',
+      properties: {
+        skill_name: { type: 'string', description: 'Nombre de la habilidad a instalar' },
+      },
+      required: ['skill_name'],
     },
-    required: ['skill_name'],
   },
 };
 
 export const selfDeployDefinition = {
-  name: 'self_deploy',
-  description: 'Sube los cambios a GitHub para que Vercel se actualice.',
-  parameters: {
-    type: 'object',
-    properties: {
-      commit_message: { type: 'string', description: 'Mensaje del commit' },
+  type: 'function',
+  function: {
+    name: 'self_deploy',
+    description: 'Sube los cambios a GitHub para que Vercel se actualice.',
+    parameters: {
+      type: 'object',
+      properties: {
+        commit_message: { type: 'string', description: 'Mensaje del commit' },
+      },
+      required: ['commit_message'],
     },
-    required: ['commit_message'],
   },
 };
 
@@ -71,7 +80,7 @@ export async function applyNewSkill(name: string) {
   // Añadir importación (asumiendo formato estándar)
   const importStatement = `import { ${name}Definition, ${name} } from './${name}.js';\n`;
   if (!indexContent.includes(importStatement)) {
-    indexContent = importStatement + indexContent;
+    indexContent = indexContent.replace("import", `${importStatement}import`);
   }
 
   // Añadir a la lista de definiciones

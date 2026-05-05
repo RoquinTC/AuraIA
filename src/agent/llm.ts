@@ -39,7 +39,15 @@ CAPACIDAD DE EVOLUCIÓN (SUPERPODERES):
 
 REGLAS DE DISEÑO DE HERRAMIENTAS:
 - Todas las herramientas van en 'src/tools/'.
-- Sigue el formato existente: un objeto 'Definition' y una función asíncrona.
+- Sigue el formato estricto de OpenAI:
+  export const nombreDefinition = {
+    type: 'function',
+    function: {
+      name: 'nombre_herramienta',
+      description: '...',
+      parameters: { ... }
+    }
+  };
 - Usa librerías que ya estén en package.json (axios, googleapis, etc.) o propón instalarlas.
 
 IMPORTANTE SOBRE TU VOZ:

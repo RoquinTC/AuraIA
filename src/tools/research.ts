@@ -2,17 +2,20 @@ import axios from 'axios';
 import { env } from '../config/env.js';
 
 export const webSearchDefinition = {
-  name: 'web_search',
-  description: 'Busca información en tiempo real en internet para investigar APIs o temas técnicos.',
-  parameters: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'La consulta de búsqueda',
+  type: 'function',
+  function: {
+    name: 'web_search',
+    description: 'Busca información en tiempo real en internet para investigar APIs o temas técnicos.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'La consulta de búsqueda',
+        },
       },
+      required: ['query'],
     },
-    required: ['query'],
   },
 };
 
