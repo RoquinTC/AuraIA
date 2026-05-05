@@ -37,13 +37,13 @@ export const googleService = {
   async setTokenFromCode(userId: number, code: string) {
     const oauth2Client = this.getAuthClient();
     const { tokens } = await oauth2Client.getToken(code);
-    await memory.saveGoogleToken(userId, tokens);
+    await memory.saveGoogleTokens(userId, tokens);
     return tokens;
   },
 
   async getAuthorizedClient(userId: number) {
     const oauth2Client = this.getAuthClient();
-    const token = await memory.getGoogleToken(userId);
+    const token = await memory.getGoogleTokens(userId);
 
     if (!token) {
       return null;
@@ -53,7 +53,7 @@ export const googleService = {
 
     // Si el token expiró, se refrescará automáticamente si tiene refresh_token
     oauth2Client.on('tokens', async (newTokens) => {
-      await memory.saveGoogleToken(userId, { ...token, ...newTokens });
+      await memory.saveGoogleTokens(userId, { ...token, ...newTokens });
     });
 
     return oauth2Client;
