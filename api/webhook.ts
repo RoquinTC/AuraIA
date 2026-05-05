@@ -15,6 +15,8 @@ export default async function handle(req: any, res: any) {
     }
   }
 
-  // Grammy se encarga de convertir la petición HTTP al formato del bot
-  return webhookCallback(bot, "http")(req, res);
+  // Aumentamos el timeout a 30 segundos para dar tiempo a la IA a pensar y usar herramientas
+  return webhookCallback(bot, "http", {
+    timeoutMilliseconds: 30000,
+  })(req, res);
 }
