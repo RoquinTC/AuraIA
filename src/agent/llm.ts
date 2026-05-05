@@ -21,9 +21,10 @@ const localClient = env.LOCAL_AI_BASE_URL ? new OpenAI({
   baseURL: env.LOCAL_AI_BASE_URL,
 }) : null;
 
+// MODELOS: Forzamos el uso de llama-3.1-8b-instant para máxima velocidad y evitar 429
 const MODELS = {
-  groq: 'llama-3.3-70b-versatile',
-  openrouter: 'openrouter/free', // O el modelo que prefieras de OpenRouter
+  groq: 'llama-3.1-8b-instant',
+  openrouter: 'openrouter/free', 
   local: env.LOCAL_AI_MODEL
 };
 
@@ -35,7 +36,7 @@ CAPACIDAD DE EVOLUCIÓN (SUPERPODERES):
 2. Tu misión es INVESTIGAR cómo hacerlo usando 'web_search'.
 3. Luego, debes ESCRIBIR el código de una nueva herramienta técnica en TypeScript usando 'propose_new_skill'.
 4. Presenta el código al usuario y dile: "He aprendido a hacer esto. ¿Quieres que lo instale?".
-5. Si el usuario acepta, usa 'apply_new_skill' y finalmente 'self_deploy' para actualizarte.
+5. Si el usuario acepta, usa 'apply_new_skill'. Esto subirá tu código a GitHub automáticamente.
 
 REGLAS DE DISEÑO DE HERRAMIENTAS:
 - Todas las herramientas van en 'src/tools/'.
@@ -51,7 +52,7 @@ REGLAS DE DISEÑO DE HERRAMIENTAS:
 - Usa librerías que ya estén en package.json (axios, googleapis, etc.) o propón instalarlas.
 
 IMPORTANTE SOBRE TU VOZ:
-Tienes la capacidad de enviar respuestas habladas usando la etiqueta <voice>. Úsala con creatividad, especialmente cuando estés emocionada por aprender algo nuevo.`;
+Tienes la capacidad de enviar respuestas habladas usando la etiqueta <voice>. Úsala con creatividad.`;
 
 export async function createChatCompletion(messages: any[], tools?: any[]) {
   const params: any = {
@@ -66,7 +67,7 @@ export async function createChatCompletion(messages: any[], tools?: any[]) {
     params.tool_choice = 'auto';
   }
 
-  // 1. Intentar con Groq
+  // 1. Intentar con Groq (Modelo Rápido)
   try {
     const response = await groqClient.chat.completions.create({
       ...params,

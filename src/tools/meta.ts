@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import axios from 'axios';
+import { env } from '../config/env.js';
+import { memory } from '../memory/db.js';
 
 export const proposeNewSkillDefinition = {
   type: 'function',
@@ -50,65 +52,83 @@ export const selfDeployDefinition = {
 };
 
 export async function proposeNewSkill(name: string, desc: string, code: string) {
-  // Guardamos en una carpeta de propuestas para revisión
-  const proposedDir = path.join(process.cwd(), 'proposed_skills');
-  if (!fs.existsSync(proposedDir)) fs.mkdirSync(proposedDir);
-
-  const filePath = path.join(proposedDir, `${name}.ts`);
-  fs.writeFileSync(filePath, code);
+  // GUARDAR EN FIRESTORE (No en disco)
+  await memory.addMessage(999, 'proposal', JSON.stringify({
+    name,
+    description: desc,
+    code,
+    timestamp: Date.now()
+  }));
 
   return `✅ He generado la propuesta para "${name}". 
-Código guardado en: proposed_skills/${name}.ts. 
+Código guardado en la base de datos en la nube. 
 Por favor, revísalo y si estás de acuerdo, dime "Aplica la habilidad ${name}".`;
 }
 
 export async function applyNewSkill(name: string) {
-  const proposedPath = path.join(process.cwd(), 'proposed_skills', `${name}.ts`);
-  const targetPath = path.join(process.cwd(), 'src', 'tools', `${name}.ts`);
-
-  if (!fs.existsSync(proposedPath)) {
-    throw new Error(`No existe una propuesta para la habilidad: ${name}`);
+  if (!env.GITHUB_TOKEN || !env.GITHUB_USER || !env.GITHUB_REPO) {
+    throw new Error('Faltan configurar variables de GITHUB en el .env');
   }
 
-  // 1. Mover el archivo a la carpeta de herramientas
-  fs.copyFileSync(proposedPath, targetPath);
+  // 1. Obtener la propuesta de Firestore (buscamos la más reciente)
+  const history = await memory.getHistory(999, 10);
+  const proposalMsg = history.reverse().find((m: any) => {
+    try {
+      const p = JSON.parse(m.content);
+      return p.name === name;
+    } catch (e) { return false; }
+  });
 
-  // 2. Registrar la herramienta en src/tools/index.ts
-  const indexPath = path.join(process.cwd(), 'src', 'tools', 'index.ts');
-  let indexContent = fs.readFileSync(indexPath, 'utf8');
+  if (!proposalMsg) throw new Error(`No encontré la propuesta para ${name}`);
+  const proposal = JSON.parse(proposalMsg.content);
 
-  // Añadir importación (asumiendo formato estándar)
-  const importStatement = `import { ${name}Definition, ${name} } from './${name}.js';\n`;
-  if (!indexContent.includes(importStatement)) {
-    indexContent = indexContent.replace("import", `${importStatement}import`);
+  // 2. Subir el nuevo archivo de herramienta a GitHub vía API
+  const toolContentBase64 = Buffer.from(proposal.code).toString('base64');
+
+  await axios.put(
+    `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/contents/src/tools/${name}.ts`,
+    {
+      message: `Feat: add new skill ${name} (Aura Evolution)`,
+      content: toolContentBase64,
+    },
+    { headers: { Authorization: `token ${env.GITHUB_TOKEN}` } }
+  );
+
+  // 3. Actualizar index.ts en GitHub vía API
+  const indexUrl = `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/contents/src/tools/index.ts`;
+  const indexRes = await axios.get(indexUrl, {
+    headers: { Authorization: `token ${env.GITHUB_TOKEN}` }
+  });
+
+  const currentContent = Buffer.from(indexRes.data.content, 'base64').toString('utf8');
+  const sha = indexRes.data.sha;
+
+  const importLine = `import { ${name}Definition, ${name} } from './${name}.js';\n`;
+  let newIndexContent = currentContent;
+
+  if (!newIndexContent.includes(importLine)) {
+    newIndexContent = importLine + newIndexContent;
+  }
+  if (!newIndexContent.includes(`${name}Definition`)) {
+    newIndexContent = newIndexContent.replace('export const toolDefinitions = [', `export const toolDefinitions = [\n  ${name}Definition,`);
+  }
+  if (!newIndexContent.includes(`case '${name}':`)) {
+    newIndexContent = newIndexContent.replace("default:", `case '${name}':\n      return await ${name}(args.query || args);\n    default:`);
   }
 
-  // Añadir a la lista de definiciones
-  if (!indexContent.includes(`${name}Definition`)) {
-    indexContent = indexContent.replace('export const toolDefinitions = [', `export const toolDefinitions = [\n  ${name}Definition,`);
-  }
+  await axios.put(
+    indexUrl,
+    {
+      message: `Refactor: register new skill ${name} in index.ts`,
+      content: Buffer.from(newIndexContent).toString('base64'),
+      sha: sha
+    },
+    { headers: { Authorization: `token ${env.GITHUB_TOKEN}` } }
+  );
 
-  // Añadir al switch de ejecución (si no es de google)
-  if (!indexContent.includes(`case '${name}':`)) {
-     indexContent = indexContent.replace("default:", `case '${name}':\n      return await ${name}(args.query || args);\n    default:`);
-  }
-
-  fs.writeFileSync(indexPath, indexContent);
-
-  return `🚀 Habilidad "${name}" integrada con éxito. Ahora puedes pedirme que use 'self_deploy' para subir los cambios.`;
+  return `🚀 ¡Hecho! He subido el código de "${name}" directamente a GitHub y he actualizado mi registro. Vercel se está reiniciando con mi nuevo poder.`;
 }
 
 export async function selfDeploy(message: string) {
-  try {
-    // Validar sintaxis antes de subir
-    execSync('npx tsc --noEmit', { stdio: 'inherit' });
-    
-    execSync('git add .', { stdio: 'inherit' });
-    execSync(`git commit -m "${message}"`, { stdio: 'inherit' });
-    execSync('git push origin main', { stdio: 'inherit' });
-    
-    return "✅ ¡Despliegue completado! En unos minutos estaré actualizada en la nube.";
-  } catch (error: any) {
-    throw new Error(`Error en el despliegue: ${error.message}`);
-  }
+  return "✅ Mi sistema ahora es evolutivo en tiempo real. Al aplicar una habilidad con 'apply_new_skill', ya me actualizo automáticamente en GitHub. ¡No necesito hacer git push manual!";
 }
