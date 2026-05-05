@@ -1,5 +1,5 @@
-import { memory } from './memory/db.ts';
-import { startBot } from './bot/telegram.ts';
+import { memory } from './memory/db';
+import { startBot } from './bot/telegram';
 
 async function main() {
   console.log('Iniciando Aura Agent...');

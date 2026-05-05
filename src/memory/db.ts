@@ -1,6 +1,6 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { env } from '../config/env.ts';
+import { env } from '../config/env';
 import fs from 'fs';
 
 export interface MessageRow {

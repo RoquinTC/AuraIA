@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import OpenAI from 'openai';
-import { env } from '../config/env.ts';
+import { env } from '../config/env';
 import { EdgeTTS } from 'node-edge-tts';
 
 const groqClient = new OpenAI({

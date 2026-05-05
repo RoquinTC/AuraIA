@@ -1,6 +1,6 @@
-import { createChatCompletion } from './llm.ts';
-import { memory } from '../memory/db.ts';
-import { toolDefinitions, executeTool } from '../tools/index.ts';
+import { createChatCompletion } from './llm';
+import { memory } from '../memory/db';
+import { toolDefinitions, executeTool } from '../tools/index';
 
 const MAX_ITERATIONS = 5;
 
